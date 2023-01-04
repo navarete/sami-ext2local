@@ -114,15 +114,18 @@ class DarkCombine(Combine):
         bx, by = header['CCDSUM'].strip().split()
 
         # Parameter obtained from PySOAR, written by Luciano Fraga
-        master_dark = ccdproc.combine(
-            self.input_list, method='average', mem_limit=6.4e7,
-            minmax_clip=True, unit='adu')
+        master_dark = ccdproc.combine(self.input_list,
+                                      method='average',
+                                      mem_limit=6.4e7,
+                                      minmax_clip=True,
+                                      unit='adu'
+                                      )
 
         if self.output_filename is None:
-            self.output_filename = "1Dark{}x{}".format(bx, by)
+            self.output_filename = "master_dark{}x{}".format(bx, by)
 
         pyfits.writeto(
-            self.output_filename, master_dark.data, header)
+            self.output_filename, master_dark.data, header=header, overwrite=True)
 
 
 class FlatCombine(Combine):
@@ -168,10 +171,13 @@ class FlatCombine(Combine):
         # TODO - Scale Function for SOI and SIFS
 
         # Parameter obtained from PySOAR, written by Luciano Fraga
-        ccd_data = ccdproc.combine(
-            self.input_list, method='median', mem_limit=6.4e7, sigma_clip=True,
-            unit='adu', scale=scale_function
-        )
+        ccd_data = ccdproc.combine(self.input_list,
+                                   method='median',
+                                   mem_limit=6.4e7,
+                                   sigma_clip=True,
+                                   unit='adu',
+                                   scale=scale_function
+                                   )
 
         data = ccd_data.data
 
@@ -182,10 +188,10 @@ class FlatCombine(Combine):
             self.debug('Binning: {:d}'.format(binning))
 
             self.output_filename = \
-                '1NSFLAT{0:d}x{0:d}_{1:s}.fits'.format(
+                'master_NSFLAT{0:d}x{0:d}_{1:s}.fits'.format(
                     binning, filter_name)
 
-        pyfits.writeto(self.output_filename, data, header)
+        pyfits.writeto(self.output_filename, data, header=header, overwrite=True)
 
 
 class ZeroCombine(Combine):
@@ -222,18 +228,24 @@ class ZeroCombine(Combine):
         header = pyfits.getheader(self.input_list[0])
         bx, by = header['CCDSUM'].strip().split()
 
-        # Parameter obtained from PySOAR, written by Luciano Fraga
+        # Parameters obtained from PySOAR, written by Luciano Fraga
         try:
-            master_bias = ccdproc.combine(
-                self.input_list, method='average', mem_limit=6.4e7,
-                minmax_clip=True, unit='adu')
+            master_bias = ccdproc.combine(self.input_list,
+                                          method='average',
+                                          mem_limit=6.4e7,
+                                          minmax_clip=True,
+                                          unit='adu'
+                                          )
         except ZeroDivisionError:
             raise RuntimeError('CCDProc.combine raised an error. '
                                'Try again with a different number of input '
                                'files')
 
         if self.output_filename is None:
-            self.output_filename = "0Zero{}x{}".format(bx, by)
+            self.output_filename = "master_Zero{}x{}".format(bx, by)
 
-        pyfits.writeto(
-            self.output_filename, master_bias.data, header)
+        pyfits.writeto(self.output_filename,
+                       master_bias.data,
+                       header=header,
+                       overwrite=True
+                       )

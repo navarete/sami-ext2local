@@ -114,8 +114,9 @@ you will  find that several features are still to be implemented.
 
  * m : image was **m**erged.
  * z : image was **z**ero subtracted.
- * r : **r**emoved cosmic rays form image.
  * f : image was **f**lat fielded.
+ * c : image was **c**leaned from known hot columns and lines.
+ * r : **r**emoved cosmic rays form image.
  * _ (no prefix) : means that the data was flagged as bad data.
 
 ### Data Quality

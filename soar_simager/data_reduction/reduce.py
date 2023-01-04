@@ -74,7 +74,7 @@ class Reducer:
             The filename of the master zero that will be used in subtraction.
 
         clean : bool
-            Clean bad collumns by taking the _median value of the pixels around
+            Clean bad columns by taking the _median value of the pixels around
             them.
 
         cosmic_rays : bool
@@ -686,6 +686,8 @@ class Reducer:
                     m = merged amplifiers.
                     z = zero subtracted.
                     f = flat corrected.
+                    c = hot columns cleaned.
+                    r = cosmic rays removed.
         """
 
         prefix = 'm_'
@@ -698,6 +700,12 @@ class Reducer:
 
         if self.flat_file:
             prefix = 'f' + prefix
+
+        if self.clean:
+            prefix = 'c' + prefix
+
+        if self.cosmic_rays:
+            prefix = 'r' + prefix
 
         return prefix
 
@@ -719,8 +727,7 @@ class Reducer:
             return hdul[0].data
 
         # Correct for binning
-        bin_size = _np.array(hdul[1].header['CCDSUM'].split(' '),
-                             dtype=int)
+        bin_size = _np.array(hdul[1].header['CCDSUM'].split(' '), dtype=int)
         bw, bh = w[1] // bin_size[0], h[1] // bin_size[1]
 
         # Create empty full frame
@@ -783,8 +790,9 @@ class Reducer:
             h.add_history(
                 'Cosmic rays and hot pixels removed using LACosmic')
 
-            data = d
+            data = d.data # lacosmic adds quantity to the data, we just want the data itself
             header = h
+            prefix = 'r' + prefix
 
         return data, header, prefix
 
@@ -824,11 +832,6 @@ class SamiReducer(Reducer):
             data, header, prefix, self.dark_file
         )
 
-        # Remove cosmic rays and hot pixels
-        data, header, prefix = self.remove_cosmic_rays(
-            data, header, prefix, self.cosmic_rays
-        )
-
         # Remove lateral glows
         data, header, prefix = self.correct_lateral_glow(
             data, header, prefix, self.glow_file
@@ -839,14 +842,19 @@ class SamiReducer(Reducer):
             data, header, prefix, self.flat_file
         )
 
-        # Normalize by the EXPOSURE TIME
-        data, header, prefix = self.divide_by_exposuretime(
-            data, header, prefix, self.time
-        )
-
         # Clean known bad columns and lines
         data, header, prefix = self.clean_hot_columns_and_lines(
             data, header, prefix, self.clean
+        )
+
+        # Remove cosmic rays and hot pixels
+        data, header, prefix = self.remove_cosmic_rays(
+            data, header, prefix, self.cosmic_rays
+        )
+
+        # Normalize by the EXPOSURE TIME
+        data, header, prefix = self.divide_by_exposuretime(
+            data, header, prefix, self.time
         )
 
         # Add WCS
@@ -898,8 +906,17 @@ class SamiReducer(Reducer):
                 [948, 0, 512],
                 [949, 0, 512]
                 ]
+        elif binning == 2:
+            bad_columns = [
+                [ 335, 0, 1027],
+                [ 609, 0, 1027],
+                [ 953, 0, 1029],
+                [1344, 0, 1027],
+                [1451, 1029, 2056],
+                [1624, 679, 1029]
+                ]
         else:
-            []
+            print("No bad columns defined for binning {}x{}".format(binning,binning))
 
         for column in bad_columns:
             x0 = column[0]

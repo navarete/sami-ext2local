@@ -25,13 +25,15 @@ __author__ = 'Bruno Quint'
 KEYWORDS = ["OBSTYPE", "FILTERS", "CCDSUM"]
 
 
-def data_reduction(path, debug=False, quiet=False):
+def data_reduction(path, outfolder=False, debug=False, quiet=False):
 
     """
     Main method for SAMI data reduction pipeline.
 
     Args:
          path (str) : path to the directory which contains the data.
+
+         outfolder (str, optional) : path to the directory which will store the processed data.
 
          debug (bool, optional) : enable debug mode (default = False).
 
@@ -48,7 +50,10 @@ def data_reduction(path, debug=False, quiet=False):
     log.info('SAMI Data-Reduction Pipeline')
     log.info('Version {}'.format(version.__str__))
 
-    reduced_path = create_reduced_folder(os.path.join(path, 'RED'))
+    if outfolder:
+        reduced_path = create_reduced_folder(outfolder)
+    else:
+        reduced_path = create_reduced_folder(os.path.join(path, 'RED'))
 
     list_of_files = glob.glob(os.path.join(path, '*.fits'))
 
@@ -64,7 +69,7 @@ def data_reduction(path, debug=False, quiet=False):
 
     process_object_files(dataframe, reduced_path)
 
-    write_dataframe_to_html(dataframe)
+    write_dataframe_to_html(dataframe, reduced_path)
 
     log.info("All done.")
 
@@ -97,6 +102,8 @@ def build_table(list_of_files):
         ]
     )
 
+    table_append = table.copy()
+
     list_of_files.sort()
     for _file in list_of_files:
 
@@ -112,18 +119,19 @@ def build_table(list_of_files):
 
         row = pd.Series(data={
             'filename': _file,
-            'obstype': hdu[0].header['obstype'],
+            'obstype':  hdu[0].header['obstype'],
             'instrume': hdu[0].header['instrume'].strip().upper(),
-            'filters': hdu[0].header['filters'],
-            'filter1': hdu[0].header['filter1'],
-            'filter2': hdu[0].header['filter2'],
-            'binning': hdu[1].header['ccdsum'].strip(),
+            'filters':  hdu[0].header['filters'],
+            'filter1':  hdu[0].header['filter1'],
+            'filter2':  hdu[0].header['filter2'],
+            'binning':  hdu[1].header['ccdsum'].strip(),
             'dark_file': None,
             'flat_file': None,
             'zero_file': None,
         })
 
-        table = table.append(row, ignore_index=True, sort=True)
+        #table = table.append(row, ignore_index=True, sort=True)
+        table = pd.concat([table,row.to_frame().transpose()], ignore_index=True, sort=True)
 
     return table
 
@@ -248,12 +256,19 @@ def process_dark_files(df, red_path):
 
             hdul = pyfits.open(dark_file)
             data, header, prefix = sami_pipeline.reduce(hdul)
-            pyfits.writeto(output_dark_file, data.value, header=header)
+
+            if hasattr(data, "value"):
+                print("")
+                print("DARK has value!")
+                print("")
+
+            if hasattr(data, "value"): data = data.value  # check if data has any quantity associated with it
+            pyfits.writeto(output_dark_file, data, header=header, overwrite=True)
 
         if len(dark_list) == 0:
             continue
 
-        dark_list_name = os.path.join(red_path, "1Dark{}x{}".format(bx, by))
+        dark_list_name = os.path.join(red_path, "master_Dark{}x{}".format(bx, by))
 
         with open(dark_list_name, 'w') as dark_list_buffer:
             for dark_file in dark_list:
@@ -345,13 +360,14 @@ def process_flat_files(df, red_path):
 
                 hdul = pyfits.open(flat_file)
                 data, header, prefix = sami_pipeline.reduce(hdul)
-                pyfits.writeto(output_flat, data.value, header=header)
+
+                pyfits.writeto(output_flat, data, header=header, overwrite=True)
 
             if len(flat_list) == 0:
                 continue
 
             flat_list_name = os.path.join(
-                red_path, "1FLAT_{}x{}_{}".format(bx, by, _filter))
+                red_path, "master_FLAT_{}x{}_{}".format(bx, by, _filter))
 
             with open(flat_list_name, 'w') as flat_list_buffer:
                 for flat_file in flat_list:
@@ -396,6 +412,7 @@ def process_object_files(df, red_path):
     """
     sami_pipeline = reduce.SamiReducer()
     sami_pipeline.cosmic_rays = True
+    sami_pipeline.clean       = True      # clean bad columns - works for SAMI 2x2 binning
 
     log.info('Processing OBJECT files.')
 
@@ -410,6 +427,7 @@ def process_object_files(df, red_path):
 
         path, fname = os.path.split(obj_file)
         prefix = sami_pipeline.get_prefix()
+
         output_obj_file = os.path.join(red_path, prefix + fname)
 
         if os.path.exists(output_obj_file):
@@ -421,11 +439,11 @@ def process_object_files(df, red_path):
 
         hdul = pyfits.open(obj_file)
         data, header, prefix = sami_pipeline.reduce(hdul)
-        pyfits.writeto(output_obj_file, data.value, header=header)
+        pyfits.writeto(output_obj_file, data, header=header, overwrite=True)
 
     return df
 
- 
+
 def process_zero_files(df, red_path):
     """
     Args:
@@ -479,12 +497,13 @@ def process_zero_files(df, red_path):
 
             hdul = pyfits.open(zero_file)
             data, header, prefix = sami_pipeline.reduce(hdul)
-            pyfits.writeto(output_zero_file, data.value, header=header)
+
+            pyfits.writeto(output_zero_file, data, header=header, overwrite=True)
 
         if len(zero_list) == 0:
                 continue
 
-        zero_list_name = os.path.join(red_path, "0Zero{}x{}".format(bx, by))
+        zero_list_name = os.path.join(red_path, "master_Zero{}x{}".format(bx, by))
 
         with open(zero_list_name, 'w') as zero_list_buffer:
             for zero_file in zero_list:
@@ -514,15 +533,20 @@ def process_zero_files(df, red_path):
     return df
 
 
-def write_dataframe_to_html(df):
+def write_dataframe_to_html(df, red_path):
     """
     Writes the dataframe as a HTML file for debugging.
 
     Parameters
     ----------
         df : pandas.DataFrame
+
+        red_path (str) : the path where the reduced data is stored.
     """
-    html_file_name = 'sami_reduce.html'
+
+    #html_file_name = 'sami_reduce.html'
+    html_file_name = os.path.join(red_path, 'sami_reduce_log.html')
+
 
     with open(html_file_name, 'w') as f:
         df.to_html(
