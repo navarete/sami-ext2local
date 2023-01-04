@@ -20,16 +20,24 @@ v0.2.1 - Reducer is now inherited by SamiReducer and SoiReducer.
        - SamiReducer removed the bad columns at the center.
 v0.2.2 - Fixed bug that caused all the objects to be reduced using the same
          master flat.
-       - Added feature that prints the data frame to a HTML file.
+       - Added feature that prints the data frame to an HTML file.
+v0.3.0 - Updated routines to new versions of the dependencies.
+       - Added option for specifying the outfolder directory.
+       - Added bad columns for SAMI (binning 2x2).
+       - Removed Quantity added by LACosmic.
+       - Added overwrite=True for all processed data.
+       - Updated get_prefix() info for cosmic-ray and hot-columns cleaned images.
+       - Moved cosmic-ray removal to the last step of the processing.
+       - the HTML log is now saved into the outfolder directory.
 """
 import calendar
 
-api = 0
-feature = 2
-bug = 2
+api     = 0
+feature = 3
+bug     = 0
 
-month = 3
-year = 2019
+month = 1
+year = 2023
 
 month = calendar.month_name[month]
 __str__ = "{api:d}.{feature:d}.{bug:d} - {month:s}, {year:d}".format(**locals())

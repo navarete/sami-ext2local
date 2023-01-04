@@ -13,6 +13,7 @@ def main():
     args = _parse_arguments()
     sami.data_reduction(args.path, outfolder=args.outfolder, debug=args.debug)
 
+
 def _parse_arguments():
     """
     Parse the argument given by the user in the command line.
